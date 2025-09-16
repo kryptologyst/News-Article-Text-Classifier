@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News Article Classifier</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin: 2rem auto;
+            max-width: 1200px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 20px 20px 0 0;
+            text-align: center;
+        }
+        
+        .prediction-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin: 1rem 0;
+            transition: transform 0.3s ease;
+        }
+        
+        .prediction-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .category-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: bold;
+            margin: 0.25rem;
+            transition: all 0.3s ease;
+        }
+        
+        .category-politics { background: #ff6b6b; color: white; }
+        .category-sports { background: #4ecdc4; color: white; }
+        .category-technology { background: #45b7d1; color: white; }
+        .category-finance { background: #96ceb4; color: white; }
+        .category-science { background: #ffeaa7; color: #2d3436; }
+        .category-health { background: #fd79a8; color: white; }
+        .category-entertainment { background: #a29bfe; color: white; }
+        
+        .confidence-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1);
+            border-radius: 10px;
+            transition: width 0.8s ease;
+        }
+        
+        .btn-predict {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 0.75rem 2rem;
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            color: white;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+        
+        .loading {
+            display: none;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .sample-headlines {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .sample-headline {
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 5px;
+            margin: 0.25rem 0;
+            transition: background 0.3s ease;
+        }
+        
+        .sample-headline:hover {
+            background: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <div class="header">
+                <h1><i class="fas fa-newspaper"></i> News Article Classifier</h1>
+                <p class="mb-0">AI-powered text classification for news headlines</p>
+            </div>
+            
+            <div class="container p-4">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="prediction-card">
+                            <h3><i class="fas fa-magic"></i> Single Prediction</h3>
+                            <div class="mb-3">
+                                <label for="headline" class="form-label">Enter a news headline:</label>
+                                <textarea class="form-control" id="headline" rows="3" 
+                                         placeholder="e.g., Government announces new healthcare reforms"></textarea>
+                            </div>
+                            <button class="btn btn-predict" onclick="predictSingle()">
+                                <i class="fas fa-brain"></i> Classify Article
+                            </button>
+                            
+                            <div class="loading mt-3">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">Analyzing headline...</p>
+                                </div>
+                            </div>
+                            
+                            <div id="singleResult" class="mt-4"></div>
+                        </div>
+                        
+                        <div class="prediction-card">
+                            <h3><i class="fas fa-list"></i> Batch Prediction</h3>
+                            <div class="mb-3">
+                                <label for="batchHeadlines" class="form-label">Enter multiple headlines (one per line):</label>
+                                <textarea class="form-control" id="batchHeadlines" rows="5" 
+                                         placeholder="Government announces new policy&#10;Sports team wins championship&#10;Tech company launches AI product"></textarea>
+                            </div>
+                            <button class="btn btn-predict" onclick="predictBatch()">
+                                <i class="fas fa-layer-group"></i> Classify All
+                            </button>
+                            
+                            <div id="batchResult" class="mt-4"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4">
+                        <div class="stats-card">
+                            <h4><i class="fas fa-chart-bar"></i> Model Statistics</h4>
+                            <div id="modelStats">Loading...</div>
+                        </div>
+                        
+                        <div class="sample-headlines">
+                            <h5><i class="fas fa-lightbulb"></i> Sample Headlines</h5>
+                            <p class="small text-muted">Click to try:</p>
+                            <div class="sample-headline" onclick="setSample('Government announces new healthcare reforms')">
+                                📰 Government announces new healthcare reforms
+                            </div>
+                            <div class="sample-headline" onclick="setSample('Basketball team wins championship final')">
+                                🏀 Basketball team wins championship final
+                            </div>
+                            <div class="sample-headline" onclick="setSample('AI breakthrough revolutionizes medical diagnosis')">
+                                🤖 AI breakthrough revolutionizes medical diagnosis
+                            </div>
+                            <div class="sample-headline" onclick="setSample('Stock market surges after economic report')">
+                                📈 Stock market surges after economic report
+                            </div>
+                            <div class="sample-headline" onclick="setSample('Scientists discover new planet in distant galaxy')">
+                                🔬 Scientists discover new planet in distant galaxy
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load model statistics on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+        });
+
+        function loadStats() {
+            fetch('/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const statsHtml = `
+                            <p><strong>Categories:</strong> ${data.categories.length}</p>
+                            <p><strong>Training Samples:</strong> ${data.total_samples}</p>
+                            <div class="mt-2">
+                                <small><strong>Category Distribution:</strong></small>
+                                ${Object.entries(data.category_counts).map(([cat, count]) => 
+                                    `<div class="d-flex justify-content-between">
+                                        <span>${cat}:</span> <span>${count}</span>
+                                    </div>`
+                                ).join('')}
+                            </div>
+                        `;
+                        document.getElementById('modelStats').innerHTML = statsHtml;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('modelStats').innerHTML = 'Failed to load stats';
+                });
+        }
+
+        function setSample(headline) {
+            document.getElementById('headline').value = headline;
+        }
+
+        function getCategoryClass(category) {
+            return 'category-' + category.toLowerCase().replace(/\s+/g, '-');
+        }
+
+        function predictSingle() {
+            const headline = document.getElementById('headline').value.trim();
+            if (!headline) {
+                alert('Please enter a headline');
+                return;
+            }
+
+            const loading = document.querySelector('.loading');
+            const resultDiv = document.getElementById('singleResult');
+            
+            loading.classList.add('show');
+            resultDiv.innerHTML = '';
+
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ headline: headline })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('show');
+                
+                if (data.success) {
+                    const resultHtml = `
+                        <div class="fade-in">
+                            <h5>Prediction Result:</h5>
+                            <div class="mb-3">
+                                <span class="category-badge ${getCategoryClass(data.prediction)}">
+                                    ${data.prediction}
+                                </span>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" style="width: ${data.confidence}%"></div>
+                                </div>
+                                <small>Confidence: ${data.confidence}%</small>
+                            </div>
+                            
+                            <h6>All Category Probabilities:</h6>
+                            <div class="row">
+                                ${Object.entries(data.all_probabilities).map(([cat, prob]) => `
+                                    <div class="col-md-6 mb-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="category-badge ${getCategoryClass(cat)}" style="font-size: 0.8em;">
+                                                ${cat}
+                                            </span>
+                                            <span>${prob}%</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    resultDiv.innerHTML = resultHtml;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                loading.classList.remove('show');
+                resultDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            });
+        }
+
+        function predictBatch() {
+            const headlines = document.getElementById('batchHeadlines').value.trim();
+            if (!headlines) {
+                alert('Please enter headlines');
+                return;
+            }
+
+            const headlineList = headlines.split('\n').filter(h => h.trim());
+            const resultDiv = document.getElementById('batchResult');
+            
+            resultDiv.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Processing batch...</p></div>';
+
+            fetch('/batch_predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ headlines: headlineList })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const resultHtml = `
+                        <div class="fade-in">
+                            <h5>Batch Results (${data.results.length} headlines):</h5>
+                            ${data.results.map((result, index) => `
+                                <div class="card mb-2">
+                                    <div class="card-body">
+                                        <h6 class="card-title">${result.headline}</h6>
+                                        ${result.error ? 
+                                            `<span class="badge bg-danger">Error: ${result.error}</span>` :
+                                            `<span class="category-badge ${getCategoryClass(result.prediction)}">
+                                                ${result.prediction} (${result.confidence}%)
+                                            </span>`
+                                        }
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    resultDiv.innerHTML = resultHtml;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            });
+        }
+    </script>
+</body>
+</html>
